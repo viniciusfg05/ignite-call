@@ -336,6 +336,34 @@ para que espere o processo de submit, caso contrário o JS entenderia que o proc
           },
         },
     ~~~
+
+  # Sobrescrevendo tipagem de biblioteca
+    - Fizemos algumas alterações no schema para criar as tabelas do adapter, mas o next não está reconhecendo as atualizações
+    - criar uma arquivo dentro: src/@types/next-auth.d.ts
+
+    ~~~ts
+      // serve para sobrescrevermos as tipagem do adapter de dentro das tipagem do next js
+
+      import nextAuth from "next-auth"; // Precisa importa, pq se não o next vai entender que estamos criando uma tipagem do zer oe não sobrevevendo-a
+
+      declare module "next-auth" {
+        interface User {
+          // User: pq o AdapterUser extend o user
+          id: string;
+          name: string;
+          email: string;
+          username: string;
+          avatar_url: string;
+        }
+
+
+        interface Session {
+          user: User;
+        }
+      }
+    
+    ~~~
+
   ## CallBacks no NEXTAUTH
     - Podemos verificar se o scopo foi aceito, se não retornamos algo. Usando a função `signIn`
     que precisamos retorno um true ou false, 
@@ -356,6 +384,22 @@ para que espere o processo de submit, caso contrário o JS entenderia que o proc
         const router = useRouter();
         const hasAuthError = !router.query.error;
     ~~~
+
+    ### Retornando os dados completo da session 
+      - Atualmente a aplicação retorna de ``const session = useSession();´´ apenas "name", "username"
+      - Conseguimos configurar no next para retorna mais dados pelo "callbacks"
+        ~~~js
+          async session({ session, user }) {
+            return {
+              ...session,
+              user,
+            };
+          },
+        ~~~
+
+      - Adicionando a informação de user na session, mas internamente o Next não entende essa informação nova,
+      pq quando sobrescrevemos a tipagem do `src/@types/next-auth.d.ts` fizemos a tipagem do `User`,
+      Vamos precisar adicionar uma `Interface Session {}` recebendo user, como no exemplo acima.
 
 # ADAPTERS - Salvando as Informações de Autenticação - DOCS https://next-auth.js.org/adapters/prisma
   * ADAPTERS é como os repositories no backend, ele serve como intermedio entre o banco de dados e o auth
@@ -703,22 +747,8 @@ para que espere o processo de submit, caso contrário o JS entenderia que o proc
     ~~~
 
 
-# Sobrescrevendo tipagem de biblioteca
-    - Fizemos algumas alterações no schema para criar as tabelas do adapter, mas o next não está reconhecendo as atualizações
-    - criar uma arquivo dentro: src/@types/next-auth.d.ts
 
 
-# Retornando os dados completo da session 
-  - Atualmente a aplicação retorna de ``const session = useSession();´´ apenas "name", "username"
-  - Conseguimos configurar no next para retorna mais dados pelo "callbacks"
-    ~~~js
-      async session({ session, user }) {
-        return {
-          ...session,
-          user,
-        };
-      },
-    ~~~
 
 
 # Converter o dia da semana "0, 1, 2, 3, 4, 5, 6" em dias nominais
@@ -747,3 +777,67 @@ para que espere o processo de submit, caso contrário o JS entenderia que o proc
 
 # Salvando os time-intervals no DB 
    - Para pegar a sessão do usuario pelo lado do servidor - `api\users\time-intervals.api.ts`
+
+
+# Retorno da session SSG
+  
+  - Existe o metodo `useSession` para retornar a session pelo lado do cliente
+  - No SSG, se termos usar esse hook, não irá funciona, no Next, devemos usar o metodo
+  `unstable_getServerSession`
+  ~~~ts
+    // obter informações do usuario logado `unstable_getServerSession() que funciona apena no lado do servidor`
+    const session = await unstable_getServerSession(
+      req,
+      res,
+      buildNextAuthOptions(req, res)
+    );
+  ~~~
+
+  - Na aplicação quando vamos ultilizar este mesmo metodo para pegar a session pelo SSG, ocorre um erro de tipagem
+  de `req` e `res` , pq as tipagem do `getServerSideProps` é diferente da api do next:
+    - getServerSideProps `req: NextPageContext["req"] & res: NextPageContext["res"]`
+    - Api do next: `req: NextApiRequest & res: NextApiResponse`
+
+      ~~~ts
+        export const getServerSideProps: GetServerSideProps = async ({ req, res }) => {
+          const session = await unstable_getServerSession(
+            req,
+            res,
+            buildNextAuthOptions(req, res)
+          );
+
+          return {
+            props: {},
+          };
+        };
+      ~~~
+
+  - Para solucionar o problema precisamos colocar um condicional nas tipagem de `req e res` de dentro
+  `buildNextAuthOptions(req, res)`
+
+    ~~~ts
+
+    export function buildNextAuthOptions(
+      req: NextApiRequest | NextPageContext["req"],
+      res: NextApiResponse | NextPageContext["res"]
+    ): NextAuthOptions {}
+
+    ~~~
+
+# HACKS 
+
+  ## para da uma margin do Display Table
+  - Por padrão as tabelas não aceitão margin, para contorna isso podemos ultilizar o `before`
+    ~~~ts
+      "tbody:before": {
+        content: ".",
+        lineHeight: "0.75rem",
+        display: "block",
+        color: "$gray800",
+      },
+    ~~~
+  
+  # Força que a altura e largura da Box sejam iguais
+    - Quando preciso que a largura e altura da box de dentro da tabela sejam iguais,
+    mesmo que a largura mude dependendo da tela, podemos usar a propriedade do css `aspectRatio: "1 / 1"` 
+    

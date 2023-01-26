@@ -12,10 +12,12 @@ export default function ConnectCalender() {
   const hasAuthError = !!router.query["error-permissions"];
   const isSignIn = session.status === "authenticated";
 
-  console.log(session);
-
   async function handleConnectCalendar() {
     await signIn("google");
+  }
+
+  async function handleNavidateToNextStep() {
+    await router.push("/register/time-intervals");
   }
 
   return (
@@ -56,7 +58,11 @@ export default function ConnectCalender() {
           </AuthErro>
         )}
 
-        <Button type="submit" disabled={!isSignIn}>
+        <Button
+          onClick={handleNavidateToNextStep}
+          type="submit"
+          disabled={!isSignIn}
+        >
           Proximo passo
           <ArrowRight />
         </Button>

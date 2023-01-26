@@ -5,21 +5,15 @@ import { unstable_getServerSession } from "next-auth";
 import { buildNextAuthOptions } from "../auth/[...nextauth].api";
 import { z } from "zod";
 
-const timeIntervalsBodySchema = z.object({
-  intervals: z.array(
-    z.object({
-      weekDay: z.number(),
-      startTimeInMinute: z.number(),
-      endTimeInMinute: z.number(),
-    })
-  ),
+const updateProfileBodySchema = z.object({
+  bio: z.string(),
 });
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  if (req.method !== "POST") {
+  if (req.method !== "PUT") {
     return res.status(405).end();
   }
 
@@ -35,21 +29,17 @@ export default async function handler(
   }
 
   // parse: retorna os dados tipados
-  const { intervals } = timeIntervalsBodySchema.parse(req.body);
+  const { bio } = updateProfileBodySchema.parse(req.body);
 
   // Criando uma session
-  await Promise.all(
-    intervals.map((interval) => {
-      return prisma.userTimeInterval.create({
-        data: {
-          week_day: interval.weekDay,
-          time_start_in_minutes: interval.startTimeInMinute,
-          time_end_in_minutes: interval.endTimeInMinute,
-          user_id: session?.user?.id,
-        },
-      });
-    })
-  );
+  await prisma.user.update({
+    where: {
+      id: session.user.id,
+    },
+    data: {
+      bio,
+    },
+  });
 
-  return res.status(201).end();
+  return res.status(204).end();
 }
