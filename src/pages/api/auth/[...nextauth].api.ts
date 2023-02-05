@@ -16,13 +16,15 @@ export function buildNextAuthOptions(
         clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
         authorization: {
           params: {
+            prompt: "consent",
+            access_type: "offline",
+            response_type: "code",
             scope:
               "https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/calendar",
           },
         },
         // retorna os dados do usuario do google
         profile(profile: GoogleProfile) {
-          console.log(profile);
           return {
             id: profile.sub, // diminutivo para usuario
             name: profile.name,

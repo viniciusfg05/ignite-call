@@ -1,6 +1,9 @@
+import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
+import { useRouter } from "next/router";
 import { CaretLeft, CaretRight } from "phosphor-react";
 import { useMemo, useState } from "react";
+import { api } from "../../lib/axios";
 import { getWeekDays } from "../../utils/get-week-days";
 import {
   CalendarActions,
@@ -26,6 +29,11 @@ interface CalendarProps {
   onDateSelected: (date: Date) => void;
 }
 
+interface BlockedDates {
+  blockedWeekDays: number[];
+  blockedDates: number[];
+}
+
 export function Calendar({ selectDate, onDateSelected }: CalendarProps) {
   const [currentDate, setCurrentDate] = useState(() => {
     return dayjs().set("date", 1);
@@ -47,7 +55,30 @@ export function Calendar({ selectDate, onDateSelected }: CalendarProps) {
     setCurrentDate(previousMonthDate);
   }
 
+  const router = useRouter();
+  const username: string = String(router.query.username);
+
+  const { data: blockedDates } = useQuery<BlockedDates>(
+    ["availability", currentDate.get("year"), currentDate.get("month")],
+    async () => {
+      const response = await api.get(`/users/${username}/blocked-dates`, {
+        params: {
+          year: currentDate.get("year"),
+          month: currentDate.format("MM"),
+        },
+      });
+      // return response.data;
+      console.log(response);
+      return response.data;
+    }
+  );
+
   const calendarWeeks = useMemo(() => {
+    if (!blockedDates) {
+      // Evita falso positivo, monstrando datas que não deveria mostrar por não termina a requisição de datas bloqueadas
+      return [];
+    }
+
     const daysMonthsArray = Array.from({
       length: currentDate.daysInMonth(),
     }).map((_, i) => {
@@ -82,7 +113,13 @@ export function Calendar({ selectDate, onDateSelected }: CalendarProps) {
         return { date, disabled: true };
       }),
       ...daysMonthsArray.map((date) => {
-        return { date, disabled: date.endOf("day").isBefore(new Date()) }; //endOf: 23:59:59 // Desabilita todos os dias depois de 23:59:59
+        return {
+          date,
+          disabled:
+            date.endOf("day").isBefore(new Date()) ||
+            blockedDates.blockedWeekDays.includes(date.get("day")) ||
+            blockedDates.blockedDates.includes(date.get("date")),
+        }; //endOf: 23:59:59 // Desabilita todos os dias depois de 23:59:59
       }),
       ...nextMonthFillArray.map((date) => {
         return { date, disabled: true };
@@ -93,7 +130,7 @@ export function Calendar({ selectDate, onDateSelected }: CalendarProps) {
       (weeks, _, i, original): CalendarWeeks => {
         // se tiver 7 dias, chegou na proxima semana
         const isNewWeek = i % 7 === 0;
-        console.log(i);
+
         if (isNewWeek) {
           weeks.push({
             week: i / 7 + 1,
@@ -107,7 +144,7 @@ export function Calendar({ selectDate, onDateSelected }: CalendarProps) {
     );
 
     return calendarWeeks;
-  }, [currentDate]);
+  }, [currentDate, blockedDates]);
 
   return (
     <CalendarContainer>
@@ -131,7 +168,7 @@ export function Calendar({ selectDate, onDateSelected }: CalendarProps) {
         <thead>
           <tr>
             {shortWeekDays.map((weekDay) => (
-              <th>{weekDay}</th>
+              <th key={weekDay}>{weekDay}</th>
             ))}
           </tr>
         </thead>
