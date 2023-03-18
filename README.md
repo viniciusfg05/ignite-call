@@ -466,6 +466,8 @@ para que espere o processo de submit, caso contrário o JS entenderia que o proc
       ~~~
 
   - Criando os adapters - lib/nextauth/prisma-adapter.ts
+        No processo atual de auth o usuario é criado antes mesmo de logar com gogle, desta forma precisamos 
+            criar um adapter do para sobrescreve os dados do usuario logo ao inves do processo padrão de criar o usuario.
 
     ~~~ts
         import { Adapter } from "next-auth/adapters";
